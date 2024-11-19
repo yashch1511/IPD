@@ -32,6 +32,7 @@ import Project from './Project';
 import Announcements from './Announcements';
 import TeamNavbar from './NavBar';
 
+
 function App() {
   return (
     <Router>

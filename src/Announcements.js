@@ -378,9 +378,10 @@
 
 // export default Announcements;
 
+
 import React, { useState, useEffect } from 'react';
 import { db, auth } from './firebase';
-import { collection, addDoc, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, setDoc, query, orderBy } from 'firebase/firestore';
 import './Announcements.css';
 
 const Announcements = () => {
@@ -388,16 +389,55 @@ const Announcements = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [user, setUser] = useState(null);
 
+  // Fetch user role from Firestore or create a new user document if not found
   const fetchUserRole = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
 
     if (docSnap.exists()) {
-      return docSnap.data().role;
+      const role = docSnap.data().role;
+      console.log('Fetched user role from Firestore:', role);  // Log the role fetched
+      return role;
     } else {
-      console.log("No such document!");
-      return null;
+      console.log("No such document! Creating new user document.");
+      try {
+        // Check if the logged-in user is a teacher based on the email
+        const role = user?.email === 'teacher@example.com' ? 'teacher' : 'student';
+        await setDoc(userRef, { role });
+        console.log('User document created with role:', role);  // Log the created role
+        return role;
+      } catch (error) {
+        console.error('Error creating user document:', error);
+        return null;
+      }
     }
+  };
+
+  // Fetch announcements from Firestore, sorted by timestamp (newest first)
+  const fetchAnnouncements = async () => {
+    const q = query(collection(db, 'announcements'), orderBy('timestamp', 'desc'));  // Sort by timestamp descending
+    const querySnapshot = await getDocs(q);
+    
+    // Fetching the usernames for each announcement
+    const announcementsData = await Promise.all(
+      querySnapshot.docs.map(async (docSnapshot) => {
+        const data = docSnapshot.data();
+        const userRef = doc(db, 'users', data.teacherId); // Fetch user document for teacherId
+        const userSnap = await getDoc(userRef);
+        let username = "Unknown"; // Default fallback if username doesn't exist
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          username = userData.name || "No Name"; // Fallback if 'name' field doesn't exist
+        } else {
+          console.log("User document not found for teacherId:", data.teacherId);
+        }
+
+        return { ...data, username }; // Include the username in the announcement data
+      })
+    );
+
+    console.log("Fetched Announcements with Usernames:", announcementsData); // Log fetched data for debugging
+    setAnnouncements(announcementsData); // Set the announcements with usernames
   };
 
   useEffect(() => {
@@ -406,25 +446,27 @@ const Announcements = () => {
   }, []);
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      const querySnapshot = await getDocs(collection(db, 'announcements'));
-      setAnnouncements(querySnapshot.docs.map(doc => doc.data()));
-    };
-    fetchAnnouncements();
+    fetchAnnouncements(); // Fetch announcements initially
   }, []);
 
   const handleAddAnnouncement = async () => {
     if (user) {
       const role = await fetchUserRole(user.uid);
+      console.log('User role when posting announcement:', role);  // Log the role during posting
 
       if (role === 'teacher') {
         try {
+          // Add new announcement to Firestore
           await addDoc(collection(db, 'announcements'), {
             content: announcement,
             timestamp: new Date(),
             teacherId: user.uid
           });
-          setAnnouncement('');
+
+          setAnnouncement(''); // Clear the input field
+
+          // After adding the new announcement, fetch the updated announcements list
+          fetchAnnouncements();
         } catch (err) {
           console.error('Error adding announcement:', err);
         }
@@ -435,7 +477,7 @@ const Announcements = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white p-8 -ml-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
           Announcements
@@ -478,10 +520,9 @@ const Announcements = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Posted by</h3>
-                    <p className="text-slate-300">{announcement.teacherId}</p>
+                    <p className="text-slate-300">{announcement.username}</p> {/* Display username */}
                   </div>
-                  
-                  <div className="bg-slate-700/50 rounded-lg p-4">
+                   <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Date & Time</h3>
                     <p className="text-slate-300">
                       {new Date(announcement.timestamp.seconds * 1000).toLocaleString()}

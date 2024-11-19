@@ -443,19 +443,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth } from './firebase';
-import { collection, query, where, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, serverTimestamp, orderBy, getDocs } from 'firebase/firestore';
 
 const Chatroom = () => {
   const [chatrooms, setChatrooms] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [user, setUser] = useState(null);
+  const [usernames, setUsernames] = useState({});  // Store usernames by userId
 
+  // Listen to user authentication state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(setUser);
     return unsubscribe;
   }, []);
 
+  // Fetch chatrooms and load messages
   useEffect(() => {
     if (user) {
       const q = query(collection(db, 'chatrooms'));
@@ -463,20 +466,49 @@ const Chatroom = () => {
         const chatroomsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setChatrooms(chatroomsData);
 
+        // Load messages for the first chatroom
         if (chatroomsData.length > 0) {
           const firstChatroomId = chatroomsData[0].id;
           loadMessages(firstChatroomId);
+          fetchAllUsernames();  // Fetch all usernames for the entire system once
         }
       });
       return unsubscribe;
     }
   }, [user]);
 
+  // Fetch all usernames from 'users' collection
+  const fetchAllUsernames = async () => {
+    try {
+      console.log('Fetching all usernames...');
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      const usersData = snapshot.docs.map((doc) => doc.data());
+      const usernamesMapping = {};
+      
+      // Map userId to username
+      usersData.forEach(user => {
+        usernamesMapping[user.uid] = user.username;  // Fix user ID key as 'uid'
+      });
+
+      console.log('Usernames fetched:', usernamesMapping);
+      setUsernames(usernamesMapping);  // Store usernames in the state
+    } catch (err) {
+      console.error('Error fetching usernames:', err);
+    }
+  };
+
+  // Load messages for the selected chatroom
   const loadMessages = (chatroomId) => {
     const messagesRef = collection(db, `chatrooms/${chatroomId}/messages`);
-    const unsubscribe = onSnapshot(messagesRef, (snapshot) => {
+
+    // Order messages by timestamp (ascending)
+    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData = snapshot.docs.map((doc) => doc.data());
-      setMessages(messagesData);
+      console.log('Messages loaded:', messagesData);
+      setMessages(messagesData);  // Set messages directly as they are ordered
     });
     return unsubscribe;
   };
@@ -488,7 +520,7 @@ const Chatroom = () => {
         if (!chatroomId) return;
 
         await addDoc(collection(db, `chatrooms/${chatroomId}/messages`), {
-          userId: user.uid,
+          userId: user.uid,  // Store user UID in the message
           message: newMessage,
           timestamp: serverTimestamp(),
         });
@@ -513,8 +545,9 @@ const Chatroom = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Render the messages
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-slate-900 to-slate-800">
+    <div className="h-screen min-w-screen flex flex-col bg-gradient-to-br from-slate-900 to-slate-800 -ml-8">
       {/* Header */}
       <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700">
         <div className="max-w-[1200px] mx-auto h-16 flex items-center justify-between px-6">
@@ -543,6 +576,8 @@ const Chatroom = () => {
         <div className="max-w-[1200px] mx-auto space-y-6">
           {messages.map((msg, index) => {
             const isMyMessage = msg.userId === user?.uid;
+            const username = usernames[msg.userId] || 'Loading...';  // Use username or loading text if not fetched yet
+            console.log('Rendering message:', msg);
             return (
               <div
                 key={index}
@@ -550,20 +585,16 @@ const Chatroom = () => {
               >
                 {!isMyMessage && (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white text-sm font-medium mr-2">
-                    {msg.userId[0]?.toUpperCase()}
+                    {username[0]?.toUpperCase()}
                   </div>
                 )}
                 <div className="flex flex-col">
                   <div
-                    className={`max-w-[600px] rounded-xl px-6 py-3 ${
-                      isMyMessage
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                        : 'bg-slate-800/50 border border-slate-700 text-slate-300'
-                    }`}
+                    className={`max-w-[600px] rounded-xl px-6 py-3 ${isMyMessage ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' : 'bg-slate-800/50 border border-slate-700 text-slate-300'}`}
                   >
                     <div className="flex items-baseline mb-1">
                       <span className={`text-sm font-medium ${isMyMessage ? 'text-slate-100' : 'text-cyan-400'}`}>
-                        {isMyMessage ? 'You' : msg.userId}
+                        {isMyMessage ? 'You' : username}  {/* Display username */}
                       </span>
                       <span className={`text-xs ml-2 ${isMyMessage ? 'text-slate-200' : 'text-slate-400'}`}>
                         {formatTime(msg.timestamp)}
@@ -611,23 +642,13 @@ const Chatroom = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M2 21l21-9L2 3v7l15 2-15 2v7z"
+                  d="M17 8l4 4m0 0l-4 4m4-4H3"
                 />
               </svg>
             </button>
           </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };
