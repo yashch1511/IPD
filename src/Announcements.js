@@ -48,7 +48,7 @@ const Announcements = () => {
         let username = "Unknown"; // Default fallback if username doesn't exist
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          username = userData.name || "No Name"; // Fallback if 'name' field doesn't exist
+          username = userData.username || "No Name"; // Fallback if 'name' field doesn't exist
         } else {
           console.log("User document not found for teacherId:", data.teacherId);
         }
