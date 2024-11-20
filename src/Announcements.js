@@ -141,7 +141,7 @@ const Announcements = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Posted by</h3>
-                    <p className="text-slate-300">{announcement.username}</p> {/* Display username */}
+                    <p className="text-slate-300">Neha Agarwal</p> {/* Display username */}
                   </div>
                    <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Date & Time</h3>
