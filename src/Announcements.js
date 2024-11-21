@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { db, auth } from './firebase';
 import { collection, addDoc, getDocs, doc, getDoc, setDoc, query, orderBy } from 'firebase/firestore';
@@ -48,7 +47,7 @@ const Announcements = () => {
         let username = "Unknown"; // Default fallback if username doesn't exist
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          username = userData.name || "No Name"; // Fallback if 'name' field doesn't exist
+          username = userData.username || "No Name"; // Fallback if 'name' field doesn't exist
         } else {
           console.log("User document not found for teacherId:", data.teacherId);
         }
@@ -141,7 +140,7 @@ const Announcements = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Posted by</h3>
-                    <p className="text-slate-300">{announcement.username}</p> {/* Display username */}
+                    <p className="text-slate-300">Neha Agarwal</p> {/* Display username */}
                   </div>
                    <div className="bg-slate-700/50 rounded-lg p-4">
                     <h3 className="font-semibold text-cyan-400 mb-1">Date & Time</h3>
