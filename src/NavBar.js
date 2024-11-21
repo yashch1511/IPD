@@ -31,24 +31,24 @@ const TeamNavbar = () => {
       if (user) {
         try {
           // Get the user's Firestore document using the user's UID
-          const userDocRef = doc(db, "users",user.email);  // The document ID is the user's UID
+          const userDocRef = doc(db, "users", user.uid);  // The document ID is the user's UID
           const docSnap = await getDoc(userDocRef);
 
           if (docSnap.exists()) {
             // Document exists, so fetch the username from Firestore
-            const username = docSnap.data()?.username;
-            console.log("Fetched username from Firestore:", username); 
+            const username = docSnap.data().username;
+            console.log("Fetched username:", username);  // Log the fetched username for debugging
+
             // Set the username in the state
             setCurrentUser(username || "Unnamed User");  // Use fallback text if username is not found
           } else {
             // If no document is found, set a default username
             console.log("No user document found for UID:", user.uid);
-            setCurrentUser(user.displayName || user.email || user.username||"Unnamed User");
+            setCurrentUser("Unnamed User");
           }
         } catch (error) {
           console.error("Error fetching current user:", error);
-          setCurrentUser(user.displayName || user.email || user.username||"Unnamed User");
-
+          setCurrentUser("Unnamed User");
         }
       } else {
         // If no user is logged in, set as guest
@@ -120,7 +120,7 @@ const TeamNavbar = () => {
                 <div className="bg-slate-800/50 py-2">
                   {users.map((user, index) => (
                     <div
-                      key={user.id}
+                      key={index}
                       className="px-4 py-2 border-l-4 border-transparent hover:border-cyan-500"
                     >
                       <p className="font-medium text-slate-300">{user}</p>
